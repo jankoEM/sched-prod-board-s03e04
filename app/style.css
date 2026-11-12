@@ -9,3 +9,11 @@ h1 { margin: 0; font-size: 22px; }
 .row.sev2 .sev { color: #a15c00; }
 .row time { color: #555; font-variant-numeric: tabular-nums; }
 footer { color: #777; font-size: 13px; }
+.row { grid-template-columns: 90px 50px 1fr 120px 80px; }
+.row.is-new { background: #fff8e1; transition: background 1s; }
+.row.is-acked { opacity: .65; }
+.act button { font: inherit; padding: 4px 12px; cursor: pointer; }
+.acked { color: #2e7d32; font-weight: 600; }
+.loader, .empty { padding: 16px 12px; color: #666; }
+.status { color: #888; }
+footer code { font-family: ui-monospace, monospace; }
