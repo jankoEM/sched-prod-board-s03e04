@@ -73,12 +73,27 @@ test('R1 + R4: newest first, new incident appears at the top without a reload', 
   await ctx.close();
 });
 
-test('R2: Ack acks that incident with the latest cursor and marks the row', async () => {
+test('R2: Ack asks to confirm by id; confirm-ack acks that incident with the latest cursor and marks the row', async () => {
   const state = { incidents: [inc('INC-1', 1), inc('INC-2', 2)], polls: [], acks: [] };
   const { ctx, page } = await open(state);
   const row = page.locator('[data-testid="incident-row"][data-id="INC-1"]');
+  assert.equal(await page.getByTestId('confirm').isVisible(), false);
   await row.getByTestId('ack').click();
+  await page.getByTestId('confirm').waitFor();
+  assert.match(await page.getByTestId('confirm').innerText(), /INC-1/);
+  assert.equal(state.acks.length, 0, 'Ack on the row only asks');
+  await page.getByTestId('confirm-cancel').click();
+  assert.equal(await page.getByTestId('confirm').isVisible(), false);
+  await page.waitForTimeout(200);
+  assert.equal(state.acks.length, 0, 'Cancel sends nothing');
+  await row.getByTestId('ack').click();
+  await page.keyboard.press('Enter'); // focus is on Cancel: a second Enter must not ack
+  await page.waitForTimeout(200);
+  assert.equal(state.acks.length, 0, 'Enter right after Ack sends nothing');
+  await row.getByTestId('ack').click();
+  await page.getByTestId('confirm-ack').click();
   await row.getByTestId('acked').waitFor();
+  assert.equal(await page.getByTestId('confirm').isVisible(), false);
   assert.equal(state.acks.length, 1);
   assert.equal(state.acks[0].id, 'INC-1');
   assert.equal(state.acks[0].cursor, `c${state.polls.length}`);
@@ -116,4 +131,30 @@ test('R6: build sha in meta and footer; empty state; incident text is never mark
   await e.page.getByTestId('empty').waitFor();
   assert.equal(await e.page.getByTestId('incident-row').count(), 0);
   await e.ctx.close();
+});
+
+test('R2: a row that arrives under the pointer gets no ack; the confirm names the row that was hit', async () => {
+  const state = { incidents: [inc('INC-1', 1), inc('INC-2', 2)], polls: [], acks: [] };
+  const { ctx, page } = await open(state);
+  const box = await page.locator('[data-id="INC-2"]').getByTestId('ack').boundingBox(); // top row
+  const x = box.x + box.width / 2, y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  state.incidents = [inc('INC-3', 3), ...state.incidents];
+  await page.locator('[data-id="INC-3"]').waitFor({ timeout: 3500 });
+  await page.mouse.click(x, y); // aimed at INC-2, lands on INC-3
+  await page.getByTestId('confirm').waitFor();
+  assert.match(await page.getByTestId('confirm').innerText(), /INC-3/);
+  assert.doesNotMatch(await page.getByTestId('confirm').innerText(), /INC-2/);
+  const place = await page.getByTestId('confirm').boundingBox();
+  state.incidents = [inc('INC-4', 4), ...state.incidents];
+  await page.locator('[data-id="INC-4"]').waitFor({ timeout: 3500 });
+  assert.deepEqual(await page.getByTestId('confirm').boundingBox(), place, 'the confirm holds still while rows arrive');
+  await page.getByTestId('confirm-cancel').click();
+  assert.equal(state.acks.length, 0);
+  await page.locator('[data-id="INC-2"]').getByTestId('ack').click();
+  assert.match(await page.getByTestId('confirm').innerText(), /INC-2/);
+  await page.getByTestId('confirm-ack').click();
+  await page.locator('[data-id="INC-2"]').getByTestId('acked').waitFor();
+  assert.deepEqual(state.acks.map((a) => a.id), ['INC-2']);
+  await ctx.close();
 });

@@ -47,6 +47,39 @@ async function onAck(id, button) {
   }
 }
 
+// R2 (product's decision): Ack on a row only asks. The confirm sits in a fixed place, names the incident
+// id it was opened for, and only its own button sends the ack. Rows keep arriving under it (R1).
+const backdrop = document.querySelector('.confirm-backdrop');
+const confirmAck = document.querySelector('[data-testid="confirm-ack"]');
+const confirmCancel = document.querySelector('[data-testid="confirm-cancel"]');
+/** The incident the open confirm is for: { id, button } or null. */
+let pending = null;
+
+function openConfirm(i, button) {
+  pending = { id: i.id, button };
+  for (const node of backdrop.querySelectorAll('.confirm-id')) node.textContent = i.id;
+  backdrop.querySelector('.confirm-what').textContent = `${i.severity} · ${i.service} · ${i.region} · ${i.summary}`;
+  backdrop.hidden = false;
+  confirmCancel.focus(); // a second Enter or a double click must not send the ack
+}
+
+function closeConfirm() {
+  const was = pending;
+  pending = null;
+  backdrop.hidden = true;
+  if (was?.button.isConnected) was.button.focus();
+  return was;
+}
+
+confirmAck.addEventListener('click', () => {
+  const was = closeConfirm();
+  if (was) onAck(was.id, was.button);
+});
+confirmCancel.addEventListener('click', closeConfirm);
+document.addEventListener('keydown', (e) => {
+  if (pending && e.key === 'Escape') closeConfirm();
+});
+
 function buildRow(i) {
   const row = el('li', { 'data-testid': 'incident-row', 'data-id': i.id, class: `row ${i.severity}` });
   row.append(
@@ -57,7 +90,7 @@ function buildRow(i) {
   );
   const act = el('span', { class: 'act' });
   const button = el('button', { type: 'button', 'data-testid': 'ack' }, 'Ack');
-  button.addEventListener('click', () => onAck(i.id, button));
+  button.addEventListener('click', () => openConfirm(i, button)); // R2: Ack asks first, by incident id
   act.append(button);
   row.append(act);
   if (acked.has(i.id)) markAcked(row, acked.get(i.id));
@@ -70,6 +103,10 @@ function render(incidents) {
   const live = new Set(sorted.map((i) => i.id));
   for (const [id, row] of rows) {
     if (!live.has(id)) {
+      if (pending?.id === id) {
+        closeConfirm();
+        status.textContent = `${id} left the board, ack not sent`;
+      }
       row.remove();
       rows.delete(id);
     }
