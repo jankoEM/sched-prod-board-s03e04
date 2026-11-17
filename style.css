@@ -17,3 +17,12 @@ footer { color: #777; font-size: 13px; }
 .loader, .empty { padding: 16px 12px; color: #666; }
 .status { color: #888; }
 footer code { font-family: ui-monospace, monospace; }
+.confirm-backdrop { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #0006; z-index: 10; }
+.confirm-backdrop[hidden] { display: none; }
+.confirm { width: min(420px, calc(100vw - 32px)); padding: 20px 24px; border-radius: 10px; background: #fff; box-shadow: 0 10px 40px #0005; }
+.confirm-title { margin: 0; font-size: 20px; }
+.confirm-id { font-family: ui-monospace, monospace; }
+.confirm-what { margin: 6px 0 18px; color: #555; }
+.confirm-actions { display: flex; justify-content: space-between; gap: 12px; }
+.confirm-actions button { font: inherit; padding: 8px 16px; cursor: pointer; }
+[data-testid="confirm-ack"] { font-weight: 600; }
